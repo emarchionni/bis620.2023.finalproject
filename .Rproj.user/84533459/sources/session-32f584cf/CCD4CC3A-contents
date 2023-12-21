@@ -1,0 +1,124 @@
+---
+title: "analysis"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{analysis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(BIS620FinalProject)
+```
+
+# 1. Background and motivation
+
+The data set we are going to analyze is produced by the Agency for Toxic Substances and Disease Registry (ATSDR), that is, a federal public health agency of the U.S. Department of Health and Human Services. The main use of this data set is to conduct research on the social vulnerability of the US population on a geographic basis. As stated on ATSDR website social vulnerability "refers to the potential negative effects on communities caused by external stresses on human health. Such stresses include natural or human-caused disasters, or disease outbreaks" (<https://www.atsdr.cdc.gov/placeandhealth/svi/index.html>).
+
+This data set includes many interesting variables, such as demographic and socio-economics variables, and it i county-based. Our focus will be on the analysis of the wealth of people in the different counties.
+
+For a complete data dictionary of the variables present in the dataset see <https://www.atsdr.cdc.gov/placeandhealth/svi/documentation/SVI_documentation_2020.html>. Note that some variables have been added to the data set for the purpose of our analysis with respect to the original downloadable data set. Further explanations can be found in the following paragraphs.
+
+# 2. Research question
+
+The main purpose of this work is to investigate whether the level of wealth of people in a county is related to the relative size of different racial and ethnic groups within the county itself. As a target variable we take the high housing cost burden percentage, which is the percentage of households that spend 30% or more of annual income on housing costs. This might be regarded as an unusual choice, since other variables are usually considered in statistical analysis as metrics of wealth. However, in the recent literature, it has been argued in different publications that this is a better measure of insufficient income compared to other more popular variables, such as pro-capita income (refer to the data dictionary for further details and for the references, pp. 5-6).
+
+The research interest is double. From one side, we want to investigate whether there is statistical significance that different racial/ethnic compositions are reflected in different level of wealth on a county-base. Furthermore, if this is the case, we want to investigate whether the ethnic compositions are predictive for our response variable.
+
+# 3. Data cleaning and exploration
+
+## Data processing
+
+As already mentioned in the introduction, the data set loaded has already been sightly modified for our purpose. We report in the following the new introduced variables:
+
+-   a variable EP_WHITE has been introduced, this is the percentage (out of 100) of white people in each county. This variable has been calculated as the difference between 100 and the sum of the variables EP_AFAM, EP_HISP, EP_ASIAN, EP_NHPI, EP_OTHERRACE already present in the data set, which represent the percentages of the minorities in each county,
+-   a variable F_RACE has been introduced, this is a flag indicating which is the most represented race in the county. This variable is the result of an argmax operation on the variables EP_WHITE, EP_AFAM, EP_HISP, EP_ASIAN, EP_NHPI, EP_OTHERRACE. The variable takes the following values W: white, AF: African-American, H: Hispanic, A: Asian, N: Native Hawaiian or other Pacific Islands, O: Other races.
+
+## Data cleaning
+
+The data set is already well structured and little cleaning is needed. The main operation here was to convert in double columns values from -999 to NA, to optimize the data set on R language types. Indeed, this data set was optimized for SAS.
+
+## Data exploration
+
+The first interesting insight can be obtained by count-summarizing the values of the new introduced F_RACE variable.
+
+```{r}
+library(dplyr)
+data("SVI_2020_US_county")
+SVI_2020_US_county |>
+  select(F_RACE) |>
+  table()
+```
+
+We observe that the majority of counties presents a prevalence of white people. However, a non negligible number of counties presents African-American of Hispanic communities that are larger than the white people ones. It is indeed interesting to analyse if there is any evidence of difference in general wealth between those counties. Note that we may disregard the counties with Asian and Native prevalence, due to the poor numerosity. Another approach can be to create a third category gathering the two, but still we believe that the aggregate numerosity in this case is not enough to justify this approach.
+
+We further proceed by producing boxplots of our target variable, that is, the high housing cost burden percentage with respect to the most represented race in each county. In this plot, we disregard the counties of Asian or Native prevalence.
+
+```{r fig.width=5, fig.height=2.5}
+library(ggplot2)
+# disregard Asian and Native
+SVI_2020_US_county_filt <- SVI_2020_US_county |>
+  filter(F_RACE != "A" & F_RACE != "N")
+
+boxplot_F_RACE(SVI_2020_US_county_filt) +
+  scale_fill_brewer(palette="Blues") +
+  theme_minimal() +
+  theme(legend.position="none") +
+  labs(title = 'High housing cost burden percentage', x = 'Most represented county', y = 'Percentage')
+```
+
+We note that some differences can be observed among groups, we will test in the next section whether there is statistical evidence to affirm that there is an actual difference among those groups.
+
+# 4. Analysis
+
+In this section we perform our statistical anaysis, attempting at answering our research questions. We will first investigate the presence of a difference in wealth in counties labelled with the most represented race and then we will investigate the predictive power of the composititon of race with respect our target variable.
+
+## ANOVA
+
+In this analysis we will rely on our new introduced variable F_RACE, which labels each county according to the most represented ethnicity. Let $X_{i,j}$ be high housing cost burden percentage of the $i$-th county for the $j$-th ethnic group, we perform an ANOVA test among the groups $j$. We first plot the histograms relating to the three different groups, disregarding again the counties of Asian or Native prevalence.
+
+```{r fig.width=5, fig.height=2.5}
+histogram_F_RACE(SVI_2020_US_county_filt |> filter(F_RACE == "AF")) +
+  theme_minimal() +
+  geom_histogram(color="lightblue", fill = "lightblue") +
+  theme(legend.position="none") +
+  labs(title = 'AFRICAN AMERICAN - High housing cost burden percentage', x = 'Percentage', y = 'Counts')
+histogram_F_RACE(SVI_2020_US_county_filt |> filter(F_RACE == "H")) +
+  theme_minimal() +
+  geom_histogram(color="lightblue", fill = "lightblue") +
+  theme(legend.position="none") +
+  labs(title = 'HISPANIC - High housing cost burden percentage', x = 'Percentage', y = 'Counts')
+histogram_F_RACE(SVI_2020_US_county_filt |> filter(F_RACE == "W")) +
+  theme_minimal() +
+  geom_histogram(color="lightblue", fill = "lightblue") +
+  theme(legend.position="none") +
+  labs(title = 'WHITE - High housing cost burden percentage', x = 'Percentage', y = 'Counts')
+  
+```
+
+From the inspection of the histograms, we see that the three distribution of the data are far from being normal. This is particularly true in the case of the African-American and Hispanic groups, which are the less numerous groups. This suggests that a classical ANOVA test may not be appropriate in our case and hence we resort to a nonparametric framework, more specifically to a Permutational ANOVA test. We hence assume $$     X_{i,j} \overset{iid}{\sim} F_j \quad i=1,\dots,n_j, \quad j=1,\dots,3 $$
+
+We want to test:
+$$
+    H_0: X_{\cdot,1} \overset{d}{=} X_{\cdot,2} \overset{d}{=}  X_{\cdot,3} \\
+    H_1: \exists l,m \in \{1,2,3\} \ \text{s.t.} \ X_{\cdot,l} \overset{d}{\neq} X_{\cdot,m}
+$$
+In this setting, under the null hypothesis, the observations are exchangeable, since they are sampled from the same distribution. We hence can hence use as permutation transformation the simple reshuffle of the observations into the three different groups, keeping the numerosity of the groups fixed. We use as test statistic the usual Fisher's statistic used in the normal setting. Computing all the possible permutations will lead us to have an exact test. However, note that being the space of permutation big, this is unfeasible and we resort to a sub-optimal Monte Carlo approximation, permforming a number of permutations that is lower than the actual true number. 
+```{r}
+fit <- permutational_ANOVA(SVI_2020_US_county_filt)
+
+print(paste("Pvalue =", fit$Pvalue))
+```
+We observe that there is high statistical evidence to reject the null hp and to conclude that two or more groups do not come from the same population. 
+
+# 5. Interpretation and conclusions
+We performed an ANOVA test to investigate if there is statistical evidence to conclude that the wealth in the different counties is influenced by the race composition. This was done by grouping the response variable with respect to the most represented ethnicity in each county and performing an ANOVA test on the groups. The test rejects the null hypothesis with high significance and hence we can conclude that the level of wealth of people in a county is related to the ethnic representation in the county. Further investigation could be to perform tests beween different groups to study which are the whealtiest communities.
+
+More, we fitted a linear model to investigate whether the composition of races can be predictive for the level of wealth. Despite the permutational F-type test on the totality of the regressors suggests that the regression is significant at least for one parameter, the explained variance by the model is very low. This suggests that there is some correlation and that a linear fit may capture well the related dependence, but there is a really high dispersion around the fitted hyperplane. We argue that despite the composition considered can be good candidate variables for a good model, more variables have to be added to explain more variance in the model. This can be done relying on the pool of variables present in the dataset. Moreover, more complicated models may be fitted, as, for instance, GAMs.

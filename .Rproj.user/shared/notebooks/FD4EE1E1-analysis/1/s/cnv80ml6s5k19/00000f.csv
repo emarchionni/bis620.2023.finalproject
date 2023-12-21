@@ -1,0 +1,6 @@
+"0","# disregard Asian and Native
+SVI_2020_US_county_filt <- SVI_2020_US_county |>
+  filter(F_RACE != ""A"" & F_RACE != ""N"")
+"
+"2","Errore: oggetto 'F_RACE' non trovato
+"

@@ -1,0 +1,1 @@
+{"frames":[{"func":"filter(SVI_2020_US_county, F_RACE != \"A\" & F_RACE != \"N\")","file":"","line_number":0,"end_line_number":0,"character_number":0,"end_character_number":0}],"message":"Errore: oggetto 'F_RACE' non trovato\n"}

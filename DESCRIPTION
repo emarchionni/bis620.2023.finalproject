@@ -1,0 +1,24 @@
+Package: BIS620FinalProject
+Type: Package
+Title: Final project BIS620 fall 2023
+Version: 0.1.0
+Author: Edoardo Marchionni
+Maintainer: The package maintainer <edoardo.marchionni@yale.edu>
+Description: Analysis of SVI_2020_US_county dataset.
+    In this package some analysis of the SVI_2020_US_county dataset are performed.
+    This dataset and related documentations are publicily available at the links included in this description. 
+URL: https://www.atsdr.cdc.gov/placeandhealth/svi/index.html, https://www.atsdr.cdc.gov/placeandhealth/svi/documentation/SVI_documentation_2020.html
+License: GPL (>= 3)
+Encoding: UTF-8
+LazyData: true
+Imports:
+    ggplot2,
+    dplyr,
+    stats
+Depends: 
+    R (>= 2.10)
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+RoxygenNote: 7.2.3
