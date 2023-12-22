@@ -82,7 +82,7 @@ In this section we perform our statistical anaysis, attempting at answering our 
 
 ## ANOVA
 
-In this analysis we will rely on our new introduced variable F_RACE, which labels each county according to the most represented ethnicity. Let $X_{i,j}$ be high housing cost burden percentage of the $i$-th county for the $j$-th ethnic group, we perform an ANOVA test among the groups $j$. We first plot the histograms relating to the three different groups, disregarding again the counties of Asian or Native prevalence.
+In this analysis we will rely on our new introduced variable F_RACE, which labels each county according to the most represented ethnicity. Let $X_{i,j}$ be high housing cost burden percentage of the $i$-th county for the $j$-th ethnic group, we perform an ANOVA test among the groups $j$. We first investigate normality of observations per each group. This is done both by visual inspecting histograms relating to the three different groups and by performing Shapiro-Wilk tests on the sample. We disregard again the counties of Asian or Native prevalence.
 
 ```{r fig.width=5, fig.height=2.5}
 histogram_F_RACE(SVI_2020_US_county_filt |> filter(F_RACE == "AF")) +
@@ -103,22 +103,123 @@ histogram_F_RACE(SVI_2020_US_county_filt |> filter(F_RACE == "W")) +
   
 ```
 
-From the inspection of the histograms, we see that the three distribution of the data are far from being normal. This is particularly true in the case of the African-American and Hispanic groups, which are the less numerous groups. This suggests that a classical ANOVA test may not be appropriate in our case and hence we resort to a nonparametric framework, more specifically to a Permutational ANOVA test. We hence assume $$     X_{i,j} \overset{iid}{\sim} F_j \quad i=1,\dots,n_j, \quad j=1,\dots,3 $$
+```{r}
+# African - American
+SVI_2020_US_county_filt |> 
+  filter(F_RACE == "AF") |> 
+  select(EP_HBURD) |> 
+  pull() |> 
+  shapiro.test()
+```
+```{r}
+# Hispanic
+SVI_2020_US_county_filt |> 
+  filter(F_RACE == "H") |> 
+  select(EP_HBURD) |> 
+  pull() |> 
+  shapiro.test()
+```
+```{r}
+# White
+SVI_2020_US_county_filt |> 
+  filter(F_RACE == "W") |> 
+  select(EP_HBURD) |>
+  pull() |> 
+  shapiro.test()
+```
+```{r fig.width=4, fig.height=4}
+library(car)
+# African-American
+SVI_2020_US_county_filt |> 
+    filter(F_RACE == "AF") |> 
+    select(EP_HBURD) |>
+    pull() |> 
+    qqPlot(ylab = "", main = "African-American", envelope= list(style = "none"))
+```
 
+```{r fig.width=4, fig.height=4}
+# Hispanic
+SVI_2020_US_county_filt |> 
+    filter(F_RACE == "H") |> 
+    select(EP_HBURD) |>
+    pull() |> 
+    qqPlot(ylab = "", main = "Hispanic", envelope= list(style = "none"))
+```
+
+```{r fig.width=4, fig.height=4}
+# White
+SVI_2020_US_county_filt |> 
+    filter(F_RACE == "W") |> 
+    select(EP_HBURD) |>
+    pull() |> 
+    qqPlot(ylab = "", main = "White", envelope= list(style = "none"))
+```
+The Shapiro-Wilk tests performed for each subgroup is significant only for the subgroup White, suggesting that there is enough statistical evidence (very low pvalue) to reject the normality assumption. In the other two cases, we do not observe similar low values of pvalues, not allowing to draw any significant conclusion.Interestingly, the White subgroup is the only one "normally-shaped" among the three from a simple visual inspection. Yet, the qq-plots of the data of the three subgroups shows heavy-tailed distributions, in particular for the group African-American and Hispanic. This analysis suggests that a classical ANOVA test may not be appropriate in our case and hence we resort to a nonparametric framework, more specifically to a Permutational ANOVA test. We hence assume $$     X_{i,j} \overset{iid}{\sim} F_j \quad i=1,\dots,n_j, \quad j=1,\dots,3 $$
+where $F_j$ is the distribution of the group $j$.
 We want to test:
 $$
     H_0: X_{\cdot,1} \overset{d}{=} X_{\cdot,2} \overset{d}{=}  X_{\cdot,3} \\
     H_1: \exists l,m \in \{1,2,3\} \ \text{s.t.} \ X_{\cdot,l} \overset{d}{\neq} X_{\cdot,m}
 $$
 In this setting, under the null hypothesis, the observations are exchangeable, since they are sampled from the same distribution. We hence can hence use as permutation transformation the simple reshuffle of the observations into the three different groups, keeping the numerosity of the groups fixed. We use as test statistic the usual Fisher's statistic used in the normal setting. Computing all the possible permutations will lead us to have an exact test. However, note that being the space of permutation big, this is unfeasible and we resort to a sub-optimal Monte Carlo approximation, permforming a number of permutations that is lower than the actual true number. 
-```{r}
+```{r fig.width=5, fig.height=5}
 fit <- permutational_ANOVA(SVI_2020_US_county_filt)
-
-print(paste("Pvalue =", fit$Pvalue))
+ggplot(tibble(Distr = fit$T_permutational_distribution, T0 = fit$T0)) + 
+  geom_histogram(aes(x = Distr)) +
+  geom_vline(aes(xintercept=T0), color = "orange") +
+  labs(x = '', y = 'Counts', title = 'MC permutational distribution and value of the statistic') + 
+  theme_minimal()
 ```
-We observe that there is high statistical evidence to reject the null hp and to conclude that two or more groups do not come from the same population. 
+```{r}
+print(paste("Pvalue  =", fit$Pvalue))
+```
+
+We observe that there is very high statistical evidence to reject the null hp and to conclude that two or more groups do not come from the same population. Note that the exact 0 value of the pvalue is due to the fact that we are MC estimating our permutational distribution.
+
+## Linear model
+From the analysis conducted we can conclude there is evidence that the most represented ethnicity in each county is related to a change in the wealth of the county itself. We now argue whether the whole composition of race for each county can be predictive for the level of wealth. We fit a simple linear model with response variable our variable EP_HBURD and as covariates the composition of races. Note that the 5 variables EP_WHITE, EP_AFAM, EP_HISP, EP_ASIAN, EP_NHPI, EP_OTHERRACE sums up to 100 for each county, hence we just disregard one of them. We choose EP_OTHERRACE since it is the one that takes the lower values and is less interesting from an interpretative point of view. More, note that now we use the complete data set.
+```{r}
+regression <- lm(EP_HBURD ~ 
+                   EP_WHITE +
+                   EP_AFAM + 
+                   EP_HISP + 
+                   EP_ASIAN +
+                   EP_NHPI, data = SVI_2020_US_county[-550,])
+```
+
+```{r}
+summary(regression)
+```
+```{r fig.width=4, fig.height=4}
+plot(regression)
+```
+```{r}
+shapiro.test(regression$residuals)
+```
+From the inspection of the plots we see that the homoschedasticity assumption of the residuals is far from being met and, more, the estimated residuals present heavy tails with respect to a normal distribution fit. The lack of normality is confirmed by the Shapiro-Wilk test on the estimated residuals, which is highly significant for rejecting the normality assumption. More, we see that the portion of explained variance by the model is quite low, around 20%. Despite this, we want to test if the regression is overall signficant, since this would lead us to conclude that the variables have some predictive capability with respect our response and this could be a good starting point to fit more complicated models.
+
+Due to the lack of normality of the residuals, we cannot rely on the tests used in the Gaussian case, i.e. the F-test for the significance of the regression and the t-tests for the significance of each covariate. Note, hence, that the computed pvalues in the summary above have no meaning. We still rely on a permutational fashion, buiding a permutational analogous of the F-test for the overall significance of the regression in the Gaussian case. Say our fit is $Y_i = \beta_0 + \beta_1 x_{i,1} + \dots + \beta_5 x_{i,5} + \epsilon_i$, we want to test
+$$
+    H_0: \beta_1 = \dots = \beta_5 = 0 \\
+    H_1: \exists j \ \text{s.t.} \ \beta_j \neq 0.
+$$
+Under the null hypothesis the model reduces to $Y_i = \beta_0 + \epsilon_i$. Under this model, the residuals are exchangeable and hence we can rely as permutation transformation on the permutation of the response variable. As statistic, we use the classic F-statistic.
+
+```{r fig.width=5, fig.height=5}
+fit <- permutational_regression(SVI_2020_US_county[-550,])
+ggplot(tibble(Distr = fit$T_permutational_distribution, T0 = fit$T0)) + 
+  geom_histogram(aes(x = Distr)) +
+  geom_vline(aes(xintercept=T0), color = "orange") +
+  labs(x = '', y = 'Counts', title = 'MC permutational distribution and value of the statistic') + 
+  theme_minimal()
+```
+```{r}
+print(paste("Pvalue  =", fit$Pvalue))
+```
+
+We conclude that the pvalue of the test is highly significant and hence the regression is meaningful at least for one covariate. This suggests that there is some correlation and that a linear fit may capture well the related dependence. The low level of explained variance by the model can suggest a really high dispersion around the fitted hyperplane.  
 
 # 5. Interpretation and conclusions
-We performed an ANOVA test to investigate if there is statistical evidence to conclude that the wealth in the different counties is influenced by the race composition. This was done by grouping the response variable with respect to the most represented ethnicity in each county and performing an ANOVA test on the groups. The test rejects the null hypothesis with high significance and hence we can conclude that the level of wealth of people in a county is related to the ethnic representation in the county. Further investigation could be to perform tests beween different groups to study which are the whealtiest communities.
+We performed an ANOVA test to investigate if there is statistical evidence to conclude that the wealth in the different counties is influenced by the race composition. This was done by grouping the response variable with respect to the most represented ethnicity in each county and performing an ANOVA test on the groups. The test rejects the null hypothesis with high significance and hence we can conclude that the level of wealth of people in a county is related to the ethnic representation in the county. Further investigation could rely on performing tests between different groups to study which are the wealthiest communities.
 
-More, we fitted a linear model to investigate whether the composition of races can be predictive for the level of wealth. Despite the permutational F-type test on the totality of the regressors suggests that the regression is significant at least for one parameter, the explained variance by the model is very low. This suggests that there is some correlation and that a linear fit may capture well the related dependence, but there is a really high dispersion around the fitted hyperplane. We argue that despite the composition considered can be good candidate variables for a good model, more variables have to be added to explain more variance in the model. This can be done relying on the pool of variables present in the dataset. Moreover, more complicated models may be fitted, as, for instance, GAMs.
+More, we fitted a linear model to investigate whether the composition of races can be predictive for the level of wealth. Despite the permutational F-type test on the totality of the regressors suggests that the regression is overall significant, the explained variance by the model is very low. This suggests that a linear fit may be appropriate to capture well the related dependence, but there is a really high dispersion around the fitted hyperplane. We argue that, despite the composition considered can be good candidate variables for a good model, more variables have to be added to explain more variance in the model. This can be done relying on the pool of variables present in the data set or by fitting more complicated models, as, for instance, GAMs.

@@ -19,6 +19,7 @@ Depends:
     R (>= 2.10)
 Suggests: 
     knitr,
-    rmarkdown
+    rmarkdown,
+    car
 VignetteBuilder: knitr
 RoxygenNote: 7.2.3

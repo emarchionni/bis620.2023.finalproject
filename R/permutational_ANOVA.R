@@ -9,7 +9,6 @@
 #' @param B number of permutations
 #' @returns a list with the T0 statistic, the permutational sample and the pvalue of the test
 #'
-#' @importFrom utils data
 #' @importFrom dplyr pull
 #' @importFrom stats aov
 #' @export
